@@ -1,61 +1,192 @@
-🎯 Talent Intelligence Platform
+# 🎯 Talent Intelligence Platform
 
-An AI-powered Talent Intelligence Platform that helps recruiters find, rank, and understand the best candidates for any Job Description.
+An AI-powered recruiter copilot that transforms a Job Description into a ranked, explainable shortlist of candidates.
 
-The platform accepts a raw Job Description, converts it into structured hiring intent, retrieves relevant candidates using hybrid search, reranks them with a cross-encoder, applies deterministic business scoring, and produces recruiter-friendly explanations.
+The platform combines **LLM-based JD understanding, query expansion, hybrid BM25 + FAISS retrieval, metadata filtering, Reciprocal Rank Fusion (RRF), CrossEncoder reranking, and deterministic business scoring** to identify the strongest candidates for any role.
 
-🏗️ Architecture
+The system is designed to be **role-agnostic**: scoring and retrieval are driven by the structured Job Description rather than hardcoded rules for a specific role.
 
-                    ┌─────────────────────┐
-                    │     Streamlit UI    │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │      FastAPI API     │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │     LangGraph        │
-                    │    Orchestrator      │
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                ▼
-        JD Parsing       Query Expansion    Retrieval
-              │                │                │
-              │                │        ┌───────┴───────┐
-              │                │        ▼               ▼
-              │                │      BM25            FAISS
-              │                │        │               │
-              │                │        └───────┬───────┘
-              │                │                ▼
-              │                │       Metadata Filtering
-              │                │                ▼
-              │                │               RRF
-              │                │                ▼
-              │                │        CrossEncoder
-              │                │                │
-              └────────────────┼────────────────┘
-                               ▼
-                     Business Ranker
-                               │
-                               ▼
-                       Top 100 Candidates
-                               │
-                               ▼
-                    Explainability Layer
-                               │
-                 ┌─────────────┴─────────────┐
-                 ▼                           ▼
-        Deterministic Explanation      LLM Top-5 Enhancement
-                 │                           │
-                 └─────────────┬─────────────┘
-                               ▼
-                        Recruiter Results
+---
 
-🛠️ Tech Stack
+## 🚀 Key Capabilities
+
+- **Structured JD Understanding** — extracts role, skills, experience, seniority, domain, responsibilities, and hiring intent.
+- **Query Expansion** — generates multiple retrieval queries to improve candidate recall.
+- **Hybrid Retrieval** — combines BM25 lexical search with FAISS semantic search.
+- **Metadata Filtering** — removes candidates that do not satisfy applicable structured constraints.
+- **Reciprocal Rank Fusion** — combines sparse and dense retrieval rankings.
+- **CrossEncoder Reranking** — improves precision on the retrieved candidate pool.
+- **Deterministic Business Scoring** — produces reproducible 0–100 candidate scores.
+- **Explainable Recommendations** — generates grounded recruiter explanations.
+- **LLM Resilience** — deterministic explanations remain available when the LLM provider fails or is rate-limited.
+- **100K+ Candidate Support** — tested with approximately 100,000 candidate profiles.
+- **FastAPI + Streamlit** — backend API and recruiter dashboard.
+- **Dockerized Deployment** — reproducible containerized setup.
+
+---
+
+# 🏗️ Architecture
+
+```text
+                           ┌──────────────────────┐
+                           │     Streamlit UI     │
+                           └──────────┬───────────┘
+                                      │
+                                      ▼
+                           ┌──────────────────────┐
+                           │      FastAPI API     │
+                           └──────────┬───────────┘
+                                      │
+                                      ▼
+                           ┌──────────────────────┐
+                           │      LangGraph       │
+                           │     Orchestrator     │
+                           └──────────┬───────────┘
+                                      │
+                 ┌────────────────────┼────────────────────┐
+                 │                    │                    │
+                 ▼                    ▼                    ▼
+           JD Parsing          Query Expansion        Retrieval
+                                                           │
+                                             ┌─────────────┴─────────────┐
+                                             ▼                           ▼
+                                           BM25                        FAISS
+                                             │                           │
+                                             └─────────────┬─────────────┘
+                                                           ▼
+                                                  Metadata Filtering
+                                                           │
+                                                           ▼
+                                                          RRF
+                                                           │
+                                                           ▼
+                                                  CrossEncoder
+                                                           │
+                                                           ▼
+                                                  Top 100 Candidates
+                                                           │
+                                                           ▼
+                                                 Business Ranker
+                                                           │
+                                                           ▼
+                                               Explainability Layer
+                                                           │
+                                         ┌─────────────────┴────────────────┐
+                                         ▼                                  ▼
+                              Deterministic Explanations         LLM Top-5 Enhancement
+                                         │                                  │
+                                         └─────────────────┬────────────────┘
+                                                           ▼
+                                                    Recruiter Results
+
+🧠 How the Pipeline Works
+1. Job Description Understanding
+
+A raw JD is converted into structured hiring intent, including:
+
+Target role
+Required skills
+Preferred skills
+Minimum experience
+Seniority
+Domain keywords
+Industry
+Location
+Employment type
+Responsibilities
+2. Query Expansion
+
+The structured JD is transformed into multiple retrieval queries.
+
+These queries are used by BM25 to improve lexical recall across different ways a candidate profile may describe the same experience.
+
+3. Hybrid Retrieval
+
+The platform combines two complementary retrieval strategies:
+
+BM25
+
+Lexical matching for explicit skills, titles, technologies, and terminology.
+
+FAISS
+
+Semantic retrieval using normalized SentenceTransformer embeddings.
+
+Expanded JD Queries
+       │
+       ├──────────► BM25
+       │
+       └──────────► FAISS
+                     │
+                     ▼
+              Candidate Union
+                     │
+                     ▼
+            Metadata Filtering
+                     │
+                     ▼
+                    RRF
+                     │
+                     ▼
+             CrossEncoder
+4. CrossEncoder Reranking
+
+The retrieved candidate pool is reranked using:
+
+cross-encoder/ms-marco-MiniLM-L-6-v2
+
+This provides a higher-precision ordering before business scoring.
+
+5. Deterministic Business Ranking
+
+The final candidate ranking is generated using deterministic scoring logic driven by the parsed JD and candidate evidence.
+
+📈 Scoring
+
+The core scoring formula is:
+
+final_score =
+    (evidence_alignment × 0.30)
+  + (experience_fit × 0.25)
+  + (credibility × 0.20)
+  + (hireability × 0.15)
+  + 0.10
+  - penalties
+
+Final scores are scaled to 0–100.
+
+The LLM does not determine the candidate's core ranking score.
+
+This makes the ranking:
+
+Deterministic
+Reproducible
+Auditable
+Independent of LLM explanation quality
+💡 Explainability
+
+Every ranked candidate receives a deterministic explanation.
+
+The top five candidates can additionally receive LLM-enhanced explanations:
+
+Top 100 Ranked Candidates
+          │
+          ▼
+Deterministic Explanation for All 100
+          │
+          ▼
+LLM Enhancement for Top 5
+          │
+     ┌────┴────┐
+     ▼         ▼
+  Success    Failure
+     │         │
+     ▼         ▼
+ Enhanced   Keep deterministic
+
+If the LLM provider is unavailable, rate-limited, or returns malformed output, candidate ranking continues normally.
+
+🛠️ Technology Stack
 Backend
 Python 3.12
 FastAPI
@@ -63,7 +194,7 @@ LangGraph
 Pydantic v2
 Loguru
 Retrieval
-rank_bm25
+rank-bm25
 FAISS
 SentenceTransformers
 all-MiniLM-L6-v2
@@ -73,9 +204,9 @@ CrossEncoder
 cross-encoder/ms-marco-MiniLM-L-6-v2
 LLM
 
-The application uses an OpenAI-compatible LLM client and can be configured through environment variables.
+The platform uses an OpenAI-compatible LLM interface configured through environment variables.
 
-Current development setup uses the Gemini OpenAI-compatible endpoint.
+The current development setup uses the Gemini OpenAI-compatible endpoint.
 
 Frontend
 Streamlit
@@ -83,10 +214,53 @@ Pandas
 Deployment
 Docker
 Docker Compose
+📁 Project Structure
+talent-platform/
+│
+├── app/
+│   ├── core/
+│   ├── models/
+│   ├── parser/
+│   ├── retrieval/
+│   ├── ranking/
+│   ├── agents/
+│   ├── langgraph/
+│   └── api/
+│
+├── frontend/
+│   └── streamlit_app.py
+│
+├── scripts/
+│   ├── build_index.py
+│   └── generate_candidates.py
+│
+├── tests/
+│   ├── test_agents_and_business_ranker.py
+│   ├── test_hybrid_retrieval.py
+│   ├── test_langgraph_pipeline.py
+│   ├── test_parser.py
+│   ├── test_ranking_modules.py
+│   └── test_retrieval_modules.py
+│
+├── data/
+├── indexes/
+├── docs/
+│
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── pytest.ini
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── project_context.md
+└── README.md
+
+Large candidate datasets and generated retrieval indexes are intentionally excluded from the Git repository.
 
 ⚙️ Setup
-1. Clone the repository
-git clone <your-repository-url>
+1. Clone
+git clone https://github.com/Gakshat12/talent-platform.git
 cd talent-platform
 2. Create a virtual environment
 Windows
@@ -97,13 +271,16 @@ python3 -m venv .venv
 source .venv/bin/activate
 3. Install dependencies
 pip install -r requirements.txt
-🔐 Environment Variables
+🔐 Environment Configuration
 
-Create a .env file from the example:
+Create the environment file.
 
+Windows
 Copy-Item .env.example .env
+Linux / macOS
+cp .env.example .env
 
-Configure your LLM provider:
+Configure the LLM provider:
 
 OPENROUTER_API_KEY=your_api_key
 OPENROUTER_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
@@ -130,72 +307,77 @@ WEIGHT_EXPERIENCE_FIT=0.25
 WEIGHT_CREDIBILITY=0.20
 WEIGHT_HIREABILITY=0.15
 
-Paths:
+Index/data paths:
 
 FAISS_INDEX_PATH=indexes/candidates.index
 BM25_INDEX_PATH=indexes/candidates.bm25.json
 CANDIDATES_DATA_PATH=data/candidates.jsonl
 
-📊 Candidate Data
+Never commit .env or API keys.
 
-Candidates are stored as JSONL:
+📊 Candidate Dataset
+
+Candidate profiles are expected as JSONL:
 
 data/candidates.jsonl
 
-Each line represents one candidate profile.
-
-The project has been tested with a dataset of approximately:
+The project has been tested with approximately:
 
 100,000 candidates
+
+Large candidate datasets are intentionally excluded from the GitHub repository.
+
 🧱 Build Retrieval Indexes
 
-Run:
+After providing the candidate dataset:
 
 python -m scripts.build_index
 
-This creates or validates:
+The script creates or validates:
 
-indexes/candidates.index
-indexes/candidates.bm25.json
-indexes/candidates.metadata.json
+indexes/
+├── candidates.index
+├── candidates.bm25.json
+└── candidates.metadata.json
 
-The script reuses an existing compatible FAISS index instead of regenerating all embeddings.
+Existing compatible FAISS and BM25 artifacts are reused where possible.
 
-▶️ Run the Backend
-
-Start FastAPI:
-
+▶️ Run Locally
+Start FastAPI
 uvicorn app.api.main:app
 
 API:
 
-http://127.0.0.1:8000
+http://localhost:8000
 
-Swagger documentation:
+Swagger:
 
-http://127.0.0.1:8000/docs
-🖥️ Run Streamlit
+http://localhost:8000/docs
 
-In another terminal:
+Start Streamlit
+
+In a second terminal:
 
 streamlit run frontend/streamlit_app.py
 
-Open:
+Dashboard:
 
 http://localhost:8501
 
-When running locally, the frontend defaults to:
+The Streamlit client automatically uses:
 
+Local:
 http://localhost:8000
 
-When running inside Docker, API_BASE_URL is set automatically to:
-
+Docker:
 http://api:8000
+
+through the API_BASE_URL environment variable.
 
 🔌 API
 POST /api/v1/rank
 
-Rank candidates against a Job Description.
+Ranks candidates against a supplied Job Description.
 
 Request
 {
@@ -203,15 +385,16 @@ Request
 }
 Response
 
-The response contains:
+The API returns:
 
-Parsed JD information
+Parsed JD analysis
 Ranked candidates
-Deterministic score breakdown
+Final scores
+Score breakdowns
 Matched skills
 Missing skills
 Recruiter explanations
-Candidate ranking metadata
+Ranking metadata
 🐳 Docker
 
 Build:
@@ -224,132 +407,74 @@ docker compose up
 
 Services:
 
-FastAPI:
+FastAPI
 http://localhost:8000
 
-Streamlit:
+Swagger
+http://localhost:8000/docs
+
+Streamlit
 http://localhost:8501
 
 Stop:
 
 docker compose down
 
-The Docker setup mounts:
+The Docker deployment mounts candidate data and persisted indexes from the host:
 
 ./data    → /app/data
 ./indexes → /app/indexes
-
-so candidate data and persisted retrieval indexes remain available outside the container.
-
 🧪 Testing
 
-The project includes automated tests covering the main pipeline components.
-
-Run:
+Run the complete test suite:
 
 pytest -q
 
 Current validation:
 
 34 passed
-🔍 Retrieval Pipeline
 
-Candidate retrieval happens in five stages.
+The tests cover:
 
-Stage 1 — BM25
-
-The system runs BM25 over the expanded Job Description queries and keeps the top sparse matches.
-
-Stage 2 — FAISS
-
-A semantic query embedding is generated using:
-
-all-MiniLM-L6-v2
-
-and searched against the persisted FAISS IndexFlatIP.
-
-Stage 3 — Filtering
-
-Retrieved candidates are combined and filtered using structured JD metadata such as experience and applicable constraints.
-
-Stage 4 — RRF
-
-Sparse and dense rankings are fused using Reciprocal Rank Fusion.
-
-Stage 5 — CrossEncoder
-
-The resulting candidate pool is reranked using:
-
-cross-encoder/ms-marco-MiniLM-L-6-v2
-
-The final top 100 candidates are passed to the business scoring layer.
-
-📈 Business Scoring
-
-The business ranking layer uses deterministic scoring based on structured candidate evidence and the parsed Job Description.
-
-The core formula is:
-
-final_score =
-    evidence_alignment × 0.30
-  + experience_fit × 0.25
-  + credibility × 0.20
-  + hireability × 0.15
-  + 0.10
-  - penalties
-
-The final result is scaled to:
-
-0–100
-
-LLM output does not determine the candidate's core ranking score.
-
-💡 Explainability Strategy
-
-The explanation system is intentionally resilient.
-
-Top 100 ranked candidates
-        ↓
-Deterministic explanation for all 100
-        ↓
-LLM enhancement for top 5
-        ↓
-LLM succeeds → enhanced explanation
-LLM fails    → deterministic explanation retained
-
-This means temporary provider failures or quota limits do not prevent candidate ranking.
-
+Parser behavior
+LangGraph routing
+Retrieval components
+Hybrid retrieval
+Ranking logic
+Agent behavior
+Business scoring
 ⚡ Performance Design
 
-The platform avoids rebuilding expensive retrieval resources for every request.
+The platform is designed to avoid unnecessary recomputation.
 
-Persisted resources:
-
+Persisted artifacts
 FAISS index
 BM25 corpus
-
-Shared in-memory resources:
-
+Shared in-memory resources
 Embedding model
 CrossEncoder
-Retrieval objects
+Retrieval components
 
-This allows subsequent requests in the same process to reuse the retrieval infrastructure.
+This allows subsequent requests in the same application process to reuse expensive retrieval resources.
 
-🛡️ Reliability
+🛡️ Reliability & Failure Handling
 
-The system is designed to degrade gracefully.
+The platform is designed to degrade gracefully.
 
 Examples:
 
 Invalid candidate records are skipped.
-Missing candidate data returns an empty candidate pool.
+Missing candidate data is handled without crashing the API.
 Missing retrieval indexes can trigger controlled rebuilding.
-LLM parsing failures are handled through retries/fallbacks.
+LLM parsing failures are retried and handled.
 LLM explanation failures fall back to deterministic explanations.
-API input validation prevents empty/invalid JDs from reaching the pipeline.
-📌 Example JD
-We are looking for a Machine Learning Engineer with 3+ years of professional experience in Python, machine learning, NLP, PyTorch, and deploying production ML systems. The candidate should have experience building and maintaining ML pipelines, developing NLP or LLM-based applications, and exposing models through backend APIs. Experience with Docker, cloud platforms, vector databases, and model deployment is preferred.
+LLM quota/rate-limit failures do not change core candidate ranking.
+Invalid or short JD inputs are validated before entering the pipeline.
+📌 Example Job Description
+We are looking for a Machine Learning Engineer with 3+ years of professional experience in Python, machine learning, NLP, PyTorch, and deploying production ML systems.
 
-👤 Author
-Akshat Gupta
+The candidate should have experience building and maintaining ML pipelines, developing NLP or LLM-based applications, and exposing models through backend APIs.
+
+Experience with Docker, cloud platforms, vector databases, and model deployment is preferred.
+
+The role involves designing ML solutions, training and evaluating models, improving inference performance, collaborating with software engineers and data scientists, and deploying reliable ML services to production.                                                    
